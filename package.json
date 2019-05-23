@@ -1,0 +1,9 @@
+{
+  "name": "rasbAwsDataLogger",
+  "version": "1.0.0",
+  "main": "index.js",
+  "license": "MIT",
+  "dependencies": {
+    "aws-sdk": "^2.457.0"
+  }
+}

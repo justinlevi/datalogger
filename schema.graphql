@@ -1,0 +1,114 @@
+﻿schema {
+  query: Query
+  mutation: Mutation
+  subscription: Subscription
+}
+
+type Data {
+  battery: Int
+  date: Int!
+  dateFormatted: String
+  deviceID: String
+  id: String!
+  temp: String
+}
+
+type DataConnection {
+  items: [Data]
+  nextToken: String
+}
+
+type Mutation {
+  createData(input: CreateDataInput!): Data
+  deleteData(input: DeleteDataInput!): Data
+  updateData(input: UpdateDataInput!): Data
+}
+
+type Query {
+  getData(date: Int!, id: String!): Data
+  getTodaysData(deviceID: String!, filter: TableDataFilterInput, limit: Int, nextToken: String, sortDirection: String): DataConnection
+  listData(filter: TableDataFilterInput, limit: Int, nextToken: String): DataConnection
+}
+
+type Subscription {
+  onCreateData(date: Int, id: String): Data @aws_subscribe(mutations : ["createData"])
+  onDeleteData(date: Int, id: String): Data @aws_subscribe(mutations : ["deleteData"])
+  onUpdateData(date: Int, id: String): Data @aws_subscribe(mutations : ["updateData"])
+}
+
+input CreateDataInput {
+  battery: Int
+  date: Int!
+  deviceID: String
+  temp: String
+}
+
+input DeleteDataInput {
+  date: Int!
+  id: String!
+}
+
+input TableBooleanFilterInput {
+  eq: Boolean
+  ne: Boolean
+}
+
+input TableDataFilterInput {
+  date: TableIntFilterInput
+  id: TableStringFilterInput
+}
+
+input TableFloatFilterInput {
+  between: [Float]
+  contains: Float
+  eq: Float
+  ge: Float
+  gt: Float
+  le: Float
+  lt: Float
+  ne: Float
+  notContains: Float
+}
+
+input TableIDFilterInput {
+  beginsWith: ID
+  between: [ID]
+  contains: ID
+  eq: ID
+  ge: ID
+  gt: ID
+  le: ID
+  lt: ID
+  ne: ID
+  notContains: ID
+}
+
+input TableIntFilterInput {
+  between: [Int]
+  contains: Int
+  eq: Int
+  ge: Int
+  gt: Int
+  le: Int
+  lt: Int
+  ne: Int
+  notContains: Int
+}
+
+input TableStringFilterInput {
+  beginsWith: String
+  between: [String]
+  contains: String
+  eq: String
+  ge: String
+  gt: String
+  le: String
+  lt: String
+  ne: String
+  notContains: String
+}
+
+input UpdateDataInput {
+  date: Int!
+  id: String!
+}
