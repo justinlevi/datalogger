@@ -4,14 +4,43 @@ import time
 import pijuice
 import subprocess
 import datetime
+import time
 import os
 import sys
 import json
 import argparse
-import boto3
+# import boto3
 import decimal
+import uuid
+import requests
+import re
 
 # Helper class to convert a DynamoDB item to JSON.
+
+headers = {
+    "x-api-key": "da2-kon7ntg7jrfffd7xulfuncbyqu",
+    "Content-Type": "application/graphql"
+}
+
+# curl -XPOST -H "Content-Type:application/graphql" -H "x-api-key:da2-kon7ntg7jrfffd7xulfuncbyqu" -d '{ "query": "query listData {listData { items { date id} }}" }' https://c7erukjz5vhrrgqetc5sf3ia2y.appsync-api.us-east-1.amazonaws.com/graphql
+
+
+def run_query(
+        mutation, variables
+):  # A simple function to use requests.post to make the API call. Note the json= section.
+    request = requests.post(
+        'https://c7erukjz5vhrrgqetc5sf3ia2y.appsync-api.us-east-1.amazonaws.com/graphql',
+        json={
+            'query': mutation,
+            'variables': variables
+        },
+        headers=headers)
+    if request.status_code == 200:
+        return request.json()
+    else:
+        raise Exception(
+            "Query failed to run by returning code of {}. {}".format(
+                request.status_code, mutation))
 
 
 class DecimalEncoder(json.JSONEncoder):
@@ -28,7 +57,7 @@ parser = argparse.ArgumentParser()
 parser.add_argument('--workTime', nargs='?', const=60, type=int)
 args = parser.parse_args()
 
-DELTA_MIN = 5
+DELTA_MIN = 10
 
 with open('/home/pi/data.json') as json_file:
     data = json.load(json_file)
@@ -37,7 +66,7 @@ with open('/home/pi/data.json') as json_file:
 subprocess.call(["sudo", "hwclock", "--hctosys"])
 
 # Record start time
-start = datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+timestampStart = int(time.time())
 
 # This script is started at reboot by cron.
 # Since the start is very early in the boot sequence we wait for the i2c-1 device
@@ -50,7 +79,6 @@ except:
     print("Cannot create pijuice object")
     sys.exit()
 
-
 workTime = args.workTime if args.workTime else 60
 
 # Do the work
@@ -60,11 +88,9 @@ for i in range(workTime):
     time.sleep(1)
 print()
 
-
 temp = subprocess.getoutput(
     "/home/pi/.nvm/versions/node/v11.14.0/bin/ds18b20 -f -d 2")
 battery = pj.status.GetChargeLevel()
-
 
 # Do the work
 for i in range(workTime):
@@ -73,7 +99,7 @@ for i in range(workTime):
     time.sleep(1)
 print()
 
-# Set RTC alarm 5 minutes from now
+# Set RTC alarm DELTA_MIN minutes from now
 # RTC is kept in UTC
 a = {}
 a['year'] = 'EVERY_YEAR'
@@ -95,37 +121,52 @@ else:
 pj.rtcAlarm.SetWakeupEnabled(True)
 time.sleep(0.4)
 
-end = datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+timestampEnd = int(time.time())
 
 data['temps'].append({
-    'start': start,
+    'start': str(timestampStart),
     'temp': temp,
-    'end': end,
+    'end': str(timestampEnd),
     'battery': battery['data'],
 })
 
+# dynamodb = boto3.resource('dynamodb', region_name='us-east-1')
+# table = dynamodb.Table('dataLogger')
 
-dynamodb = boto3.resource('dynamodb', region_name='us-east-1')
-table = dynamodb.Table('dataLogger')
+# response = table.put_item(
+#     Item={
+#         'id': "ds18b20",
+#         'date': timestampStart,
+#         'battery': decimal.Decimal(battery['data']),
+#         'temp': temp,
+#     })
 
-response = table.put_item(
-    Item={
-        'start': start,
-        'temp': decimal.Decimal(temp),
-        'end': end,
-        'battery': decimal.Decimal(battery['data']),
+mutation = '''
+    mutation createData($createdatainput: CreateDataInput!) {
+        createData(input: $createdatainput) { id date temp battery }
     }
-)
+'''
 
-print("PutItem succeeded:")
-print(json.dumps(response, indent=4, cls=DecimalEncoder))
+variables = {
+    'createdatainput': {
+        'date': timestampStart,
+        'deviceID': 'ds18b20',
+        'battery': decimal.Decimal(battery['data']),
+        'temp': re.findall("\d+\.\d+", temp)[0],
+    }
+}
 
+result = run_query(mutation, variables)  # execute query
+print("Graphql Create Data Succeeded:")
+print(json.dumps(result, indent=4, cls=DecimalEncoder))
 
-with open('/home/pi/data.json', 'w') as outfile:
-    json.dump(data, outfile)
+# print("PutItem succeeded:")
+# print(json.dumps(response, indent=4, cls=DecimalEncoder))
 
-subprocess.call(["/usr/bin/aws", "s3", "cp",
-                 "./data.json", "s3://justinleviwinter"])
+# with open('/home/pi/data.json', 'w') as outfile:
+#     json.dump(data, outfile)
+
+# subprocess.call(["/usr/bin/aws", "s3", "cp", "./data.json", "s3://justinleviwinter"])
 
 # PiJuice shuts down power to Rpi after 20 sec from now
 # This leaves sufficient time to execute the shutdown sequence
