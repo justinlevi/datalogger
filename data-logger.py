@@ -59,8 +59,8 @@ args = parser.parse_args()
 
 DELTA_MIN = 10
 
-with open('/home/pi/data.json') as json_file:
-    data = json.load(json_file)
+# with open('/home/pi/data.json') as json_file:
+#     data = json.load(json_file)
 
 # Rely on RTC to keep the time
 subprocess.call(["sudo", "hwclock", "--hctosys"])
@@ -123,12 +123,12 @@ time.sleep(0.4)
 
 timestampEnd = int(time.time())
 
-data['temps'].append({
-    'start': str(timestampStart),
-    'temp': temp,
-    'end': str(timestampEnd),
-    'battery': battery['data'],
-})
+# data['temps'].append({
+#     'start': str(timestampStart),
+#     'temp': temp,
+#     'end': str(timestampEnd),
+#     'battery': battery['data'],
+# })
 
 # dynamodb = boto3.resource('dynamodb', region_name='us-east-1')
 # table = dynamodb.Table('dataLogger')
